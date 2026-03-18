@@ -1,65 +1,190 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useEffect, useState } from "react"
+import { AlertCircle, CheckCircle, Clock } from "lucide-react"
+import { formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
+
+// Definición simple del tipo Ticket basado en nuestro modelo Prisma
+type Ticket = {
+  id: string
+  title: string
+  description: string
+  status: string
+  priority: string
+  companyId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export default function Dashboard() {
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [loading, setLoading] = useState(true)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchTickets()
+  }, [])
+
+  const fetchTickets = async () => {
+    try {
+      const res = await fetch("/api/tickets")
+      const data = await res.json()
+      setTickets(data)
+    } catch (error) {
+      console.error("Error fetching tickets:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResolve = async (ticket: Ticket) => {
+    if (ticket.status === "Resuelto") return
+    
+    setResolvingId(ticket.id)
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Resuelto" }),
+      })
+
+      if (res.ok) {
+        const updatedTicket = await res.json()
+        
+        // BUG 2 INTENCIONAL: Mutación de estado de React
+        // Se altera el arreglo original en lugar de crear uno nuevo.
+        // Esto causa que React no detecte el cambio y no vuelva a renderizar la UI inmediatamente.
+        const ticketIndex = tickets.findIndex((t) => t.id === updatedTicket.id)
+        if (ticketIndex !== -1) {
+          tickets[ticketIndex] = updatedTicket
+          setTickets(tickets) // React no verá esto como un cambio de estado válido
+        }
+      }
+    } catch (error) {
+      console.error("Error resolving ticket:", error)
+    } finally {
+      setResolvingId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    // BUG 1 INTENCIONAL: El Navbar inferior bloquea el contenido
+    // En móviles, falta un padding inferior (ej. pb-20) en este contenedor para que el 
+    // último ticket no quede escondido detrás del fixed footer y su botón sea in-clickeable.
+    <div className="min-h-screen bg-gray-50 relative">
+      
+      {/* Header Fijo */}
+      <header className="bg-blue-600 text-white shadow-md sticky top-0 z-10">
+        <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-xl font-bold">TechCorp Soporte</h1>
+          <span className="text-sm bg-blue-700 px-3 py-1 rounded-full">Usuario Actual: Admin</span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-3xl mx-auto px-4 py-6">
+        <div className="mb-6 flex justify-between items-end">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Tickets Asignados</h2>
+            <p className="text-gray-500">Gestiona las solicitudes de los clientes.</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {tickets.length === 0 ? (
+            <div className="text-center py-10 bg-white rounded-lg shadow-sm border border-gray-100 text-gray-500">
+              No hay tickets pendientes. ¡Buen trabajo!
+            </div>
+          ) : (
+            tickets.map((ticket) => (
+              <div 
+                key={ticket.id} 
+                className={`bg-white rounded-lg shadow-sm border p-5 transition-colors ${
+                  ticket.status === "Resuelto" ? "border-green-200 bg-green-50/30" : "border-gray-200"
+                }`}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex gap-2 items-center">
+                    {ticket.priority === "Urgente" ? (
+                      <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        <AlertCircle className="w-3 h-3" />
+                        URGENTE
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        NORMAL
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
+                      {ticket.companyId}
+                    </span>
+                  </div>
+                  
+                  {ticket.status === "Resuelto" ? (
+                    <span className="flex items-center text-green-600 text-sm font-medium gap-1">
+                      <CheckCircle className="w-4 h-4" />
+                      Resuelto
+                    </span>
+                  ) : (
+                    <span className="flex items-center text-orange-500 text-sm font-medium gap-1">
+                      <Clock className="w-4 h-4" />
+                      Abierto
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">{ticket.title}</h3>
+                <p className="text-gray-600 text-sm mb-4">{ticket.description}</p>
+
+                <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
+                  <span className="text-xs text-gray-400">
+                    Creado hace {formatDistanceToNow(new Date(ticket.createdAt), { locale: es })}
+                  </span>
+                  
+                  {ticket.status !== "Resuelto" && (
+                    <button
+                      onClick={() => handleResolve(ticket)}
+                      disabled={resolvingId === ticket.id}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {resolvingId === ticket.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                          Resolviendo...
+                        </>
+                      ) : (
+                        "Resolver Ticket"
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </main>
+
+      {/* Mobile Sticky Footer - Causa el Bug 1 en móviles */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] p-4 flex justify-around items-center z-50">
+        <div className="flex flex-col items-center text-blue-600">
+          <Clock className="w-6 h-6 mb-1" />
+          <span className="text-xs font-medium">Pendientes</span>
+        </div>
+        <div className="flex flex-col items-center text-gray-400 hover:text-gray-600 transition-colors">
+          <CheckCircle className="w-6 h-6 mb-1" />
+          <span className="text-xs font-medium">Resueltos</span>
+        </div>
+      </div>
+
     </div>
-  );
+  )
 }
