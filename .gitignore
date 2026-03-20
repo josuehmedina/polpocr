@@ -41,3 +41,12 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Agents
+AGENTS.md
+CLAUDE.md
+.agent/
+.agents/
+_agent/
+_agents/
+.gemini/

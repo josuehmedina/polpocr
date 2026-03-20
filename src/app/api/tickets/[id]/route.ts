@@ -3,11 +3,14 @@ import { prisma } from '@/lib/prisma'
 
 // Función auxiliar simulada para envío de correos
 async function sendEmailNotification(ticketId: string, companyId: string) {
-  // BUG 3 INTENCIONAL: Esta promesa nunca se resuelve
-  // El hilo se queda bloqueado esperando.
+  // SOLUCIÓN BUG 3: Se agrega el resolve() para que la promesa termine y no bloquee el hilo.
   return new Promise((resolve) => {
     console.log(`Enviando notificación urgente para el ticket ${ticketId}...`)
-    // Falta: resolve() o hay un error de lógica
+    // Simulamos un retraso de red y resolvemos la promesa.
+    setTimeout(() => {
+      console.log(`Notificación enviada correctamente para ${ticketId}.`)
+      resolve(true)
+    }, 1000)
   })
 }
 
